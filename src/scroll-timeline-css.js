@@ -5,7 +5,7 @@ import { ScrollTimeline, ViewTimeline, getScrollParent, calculateRange,
 
 const parser = new StyleParser();
 
-function initMutationObserver() {
+function monitorAndParseStyleSheets() {
   const sheetObserver = new MutationObserver((entries) => {
     for (const entry of entries) {
       for (const addedNode of entry.addedNodes) {
@@ -31,10 +31,8 @@ function initMutationObserver() {
    * @param {HtmlStyleElement} el style tag to be parsed
    */
   function handleStyleTag(el) {
-    // Don’t touch empty style tags nor tags controlled by aphrodite.
-    // Details at https://github.com/Khan/aphrodite/blob/master/src/inject.js,
-    // but any modification to the style tag will break the entire page.
-    if (el.innerHTML.trim().length === 0 || 'aphrodite' in el.dataset) {
+    // Don’t touch empty style tags.
+    if (el.innerHTML.trim().length === 0) {
       return;
     }
     // TODO: Do with one pass for better performance
@@ -43,26 +41,8 @@ function initMutationObserver() {
     el.innerHTML = newSrc;
   }
 
-  function handleLinkedStylesheet(linkElement) {
-    // Filter only css links to external stylesheets.
-    if (linkElement.type != 'text/css' && linkElement.rel != 'stylesheet' || !linkElement.href) {
-      return;
-    }
-    const url = new URL(linkElement.href, document.baseURI);
-    if (url.origin != location.origin) {
-      // Most likely we won't be able to fetch resources from other origins.
-      return;
-    }
-    fetch(linkElement.getAttribute('href')).then(async (response) => {
-      const result = await response.text();
-      let newSrc = parser.transpileStyleSheet(result, true);
-      newSrc = parser.transpileStyleSheet(result, false, response.url);
-      if (newSrc != result) {
-        const blob = new Blob([newSrc], { type: 'text/css' });
-        const url = URL.createObjectURL(blob);
-        linkElement.setAttribute('href', url);
-      }
-    });
+  function handleLinkedStylesheet(el) {
+    // TODO
   }
 
   document.querySelectorAll("style").forEach((tag) => handleStyleTag(tag));
@@ -76,10 +56,10 @@ function relativePosition(phase, container, target, axis, optionsInset, percent)
   const subjectMeasurements = measureSubject(container, target)
   const phaseRange = calculateRange(phase, sourceMeasurements, subjectMeasurements, axis, optionsInset);
   const coverRange = calculateRange('cover', sourceMeasurements, subjectMeasurements, axis, optionsInset);
-  return calculateRelativePosition(phaseRange, percent, coverRange, target);
+  return calculateRelativePosition(phaseRange, percent, coverRange);
 }
 
-function createScrollTimeline(anim, animationName, target) {
+export function createScrollTimeline(anim, animationName, target) {
   const animOptions = parser.getAnimationTimelineOptions(animationName, target);
 
   if(!animOptions)
@@ -155,10 +135,11 @@ function updateKeyframesIfNecessary(anim, options) {
 export function initCSSPolyfill() {
   // Don't load if browser claims support
   if (CSS.supports("animation-timeline: --works")) {
-    return true;
+    return false;
   }
 
-  initMutationObserver();
+  // Monitor and parse the Style Sheets
+  monitorAndParseStyleSheets();
 
   // Override CSS.supports() to claim support for the CSS properties from now on
   const oldSupports = CSS.supports;
@@ -183,7 +164,11 @@ export function initCSSPolyfill() {
           // invoke the set the timeline procedure on the existing animation.
           anim.timeline = result.timeline;
         }
+      } else {
+        console.info('Not a ScrollTimeline dinges');
       }
     });
   });
+
+  return true;
 }
