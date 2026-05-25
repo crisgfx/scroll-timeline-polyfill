@@ -12,29 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  ScrollTimeline,
-  ViewTimeline,
-} from "./scroll-timeline-base";
-import {
-  animate,
-  elementGetAnimations,
-  documentGetAnimations,
-  ProxyAnimation
-} from "./proxy-animation.js";
-
 import { initCSSPolyfill } from "./scroll-timeline-css"
+import { initJSPolyfill } from "./scroll-timeline-js"
 
-import { initPolyfill } from "./init-polyfill.js"
+function initPolyfill() {
+  const jsPolyfillLoaded = initJSPolyfill();
+  const cssPolyfillLoaded = initCSSPolyfill();
 
-function initPolyfillIncludingCSS() {
-  // initCSSPolyfill returns true iff the host browser supports SDA
-  if (initCSSPolyfill()) {
-    console.debug("Polyfill skipped because browser supports Scroll Timeline.");
-    return;
+  if (jsPolyfillLoaded || jsPolyfillLoaded) {
+    console.log('ScrollTimeline Polyfill loaded');
   }
 
-  initPolyfill();
+  if (cssPolyfillLoaded) {
+    if ([...document.styleSheets].filter((s) => s.href !== null).length) {
+      console.warn(
+        'Non-Inline StyleSheets detected: ScrollTimeline polyfill currently only' +
+          ' supports inline styles within style tags'
+      );
+    }
+  }
 }
 
-initPolyfillIncludingCSS();
+initPolyfill();
